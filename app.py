@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Morny Password Kit</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0e1a;
+            --bg-secondary: #111827;
+            --bg-card: rgba(17, 24, 39, 0.95);
+            --text-primary: #e5e7eb;
+            --text-secondary: #9ca3af;
+            --accent-cyan: #00d4ff;
+            --accent-red: #ff0040;
+            --accent-yellow: #ffd700;
+            --accent-green: #00ff88;
+            --border-color: rgba(0, 212, 255, 0.1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .bg-grid {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .main-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 820px;
+            padding: 20px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 24px;
+            padding: 35px;
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .card:hover {
+            border-color: rgba(0, 212, 255, 0.3);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header .icon {
+            font-size: 3.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header h1 {
+            font-weight: 700;
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--accent-cyan), #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: var(--text-secondary);
+            font-size: 0.95rem;
+        }
+
+        .password-input {
+            background: rgba(10, 14, 26, 0.6);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            width: 100%;
+            transition: all 0.3s ease;
+            font-family: 'Courier New', monospace;
+        }
+
+        .password-input:focus {
+            border-color: var(--accent-cyan);
+            outline: none;
+            box-shadow: 0 0 30px rgba(0, 212, 255, 0.05);
+        }
+
+        .btn-check {
+            background: linear-gradient(135deg, var(--accent-cyan), #0088cc);
+            border: none;
+            border-radius: 12px;
+            padding: 14px 30px;
+            font-weight: 600;
+            color: #0a0e1a;
+            width: 100%;
+            transition: all 0.3s ease;
+        }
+
+        .btn-check:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(0, 212, 255, 0.3);
+        }
+
+        .btn-generate {
+            background: rgba(0, 212, 255, 0.1);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: var(--accent-cyan);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-generate:hover {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-memorable {
+            background: rgba(0, 255, 136, 0.1);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: var(--accent-green);
+            font-weight: 500;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .btn-memorable:hover {
+            background: rgba(0, 255, 136, 0.2);
+            border-color: var(--accent-green);
+        }
+
+        .result-card {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+            display: none;
+            background: rgba(10, 14, 26, 0.4);
+        }
+
+        .result-card.show { display: block; animation: fadeIn 0.5s ease; }
+        .result-card.strong { border-color: var(--accent-green); }
+        .result-card.good { border-color: var(--accent-cyan); }
+        .result-card.weak { border-color: var(--accent-yellow); }
+        .result-card.very_weak { border-color: var(--accent-red); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .strength-meter {
+            height: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .strength-meter-bar {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.6s ease;
+            width: 0%;
+        }
+
+        .strength-meter-bar.very_weak { background: var(--accent-red); width: 20%; }
+        .strength-meter-bar.weak { background: var(--accent-yellow); width: 40%; }
+        .strength-meter-bar.good { background: #ffa500; width: 60%; }
+        .strength-meter-bar.strong { background: var(--accent-cyan); width: 80%; }
+        .strength-meter-bar.excellent { background: var(--accent-green); width: 100%; }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 15px;
+        }
+
+        .stat-item {
+            background: rgba(255,255,255,0.02);
+            border-radius: 10px;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .stat-item .label {
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-item .value {
+            font-weight: 600;
+            font-size: 1rem;
+            margin-top: 4px;
+        }
+
+        .stat-item .value.success { color: var(--accent-green); }
+        .stat-item .value.warning { color: var(--accent-yellow); }
+        .stat-item .value.danger { color: var(--accent-red); }
+        .stat-item .value.info { color: var(--accent-cyan); }
+
+        .issues-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+        }
+
+        .issues-list li {
+            padding: 4px 0;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .issues-list li::before {
+            content: "⚠️ ";
+            margin-right: 8px;
+        }
+
+        .badge-status {
+            display: inline-block;
+            padding: 3px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .badge-status.breached {
+            background: rgba(255, 0, 64, 0.2);
+            color: var(--accent-red);
+        }
+
+        .badge-status.safe {
+            background: rgba(0, 255, 136, 0.2);
+            color: var(--accent-green);
+        }
+
+        .badge-status.unknown {
+            background: rgba(255, 215, 0, 0.2);
+            color: var(--accent-yellow);
+        }
+
+        .crack-time-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .crack-time-item {
+            background: rgba(255,255,255,0.02);
+            border-radius: 8px;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .crack-time-item .label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .crack-time-item .value {
+            font-weight: 600;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+        }
+
+        .generated-password {
+            background: rgba(0, 212, 255, 0.05);
+            border: 1px solid var(--accent-cyan);
+            border-radius: 10px;
+            padding: 14px 18px;
+            margin-top: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .generated-password .password-text {
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            color: var(--accent-cyan);
+            word-break: break-all;
+        }
+
+        .generated-password .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 5px 10px;
+        }
+
+        .generated-password .copy-btn:hover {
+            color: var(--accent-cyan);
+        }
+
+        .security-note {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0, 212, 255, 0.03);
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+        }
+
+        .security-note .note-title {
+            color: var(--accent-cyan);
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+        }
+
+        .security-note .note-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            margin: 0;
+        }
+
+        @media (max-width: 600px) {
+            .stat-grid { grid-template-columns: 1fr 1fr; }
+            .crack-time-grid { grid-template-columns: 1fr 1fr; }
+            .card { padding: 20px; }
+            .header h1 { font-size: 1.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-grid"></div>
+
+    <div class="main-container">
+        <div class="card">
+            <div class="header">
+                <div class="icon">🔐</div>
+                <h1>Morny Password Kit</h1>
+                <p>Advanced password strength checker with crack time estimation & breach detection</p>
+            </div>
+
+            <!-- Password Input -->
+            <form id="passwordForm" method="POST" action="/">
+                {{ form.hidden_tag() }}
+                <div class="row g-2">
+                    <div class="col-12">
+                        <input type="password" 
+                               class="password-input" 
+                               id="password" 
+                               name="password" 
+                               placeholder="Enter your password here..."
+                               autocomplete="off"
+                               required>
+                    </div>
+                    <div class="col-12">
+                        <button type="submit" class="btn-check">
+                            <i class="bi bi-shield-check"></i> Check Strength
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+            <!-- Generator Buttons -->
+            <div class="row g-2 mt-3">
+                <div class="col-6">
+                    <button class="btn-generate" id="generateBtn">
+                        <i class="bi bi-shuffle"></i> Generate Random
+                    </button>
+                </div>
+                <div class="col-6">
+                    <button class="btn-memorable" id="memorableBtn">
+                        <i class="bi bi-book"></i> Memorable Password
+                    </button>
+                </div>
+            </div>
+
+            <!-- Generated Password Display -->
+            <div id="generatedDisplay"></div>
+
+            <!-- Results -->
+            {% if result and result.valid %}
+            <div class="result-card show {{ result.entropy.strength }}">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong>Password Strength</strong>
+                        <span class="badge bg-{{ result.patterns.color }} ms-2">{{ result.patterns.strength }}</span>
+                    </div>
+                    <div>
+                        <span class="badge-status {% if result.breach.breached %}breached{% elif result.breach.breached == False %}safe{% else %}unknown{% endif %}">
+                            {% if result.breach.breached == True %}
+                                <i class="bi bi-exclamation-triangle"></i> Breached
+                            {% elif result.breach.breached == False %}
+                                <i class="bi bi-check-circle"></i> Safe
+                            {% else %}
+                                <i class="bi bi-question-circle"></i> Unknown
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="strength-meter">
+                    <div class="strength-meter-bar {{ result.entropy.strength }}" style="width: {{ result.patterns.score }}%;"></div>
+                </div>
+
+                <div class="stat-grid">
+                    <div class="stat-item">
+                        <div class="label">Length</div>
+                        <div class="value info">{{ result.length }} characters</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Entropy</div>
+                        <div class="value info">{{ result.entropy.bits }} bits</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="label">Score</div>
+                        <div class="value 
+                            {% if result.patterns.score >= 80 %}success
+                            {% elif result.patterns.score >= 60 %}warning
+                            {% else %}danger{% endif %}">
+                            {{ result.patterns.score }}/100
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Crack Time -->
+                <div class="mt-3">
+                    <div class="text-secondary small">Estimated Crack Time</div>
+                    <div class="crack-time-grid">
+                        <div class="crack-time-item">
+                            <div class="label">Online (Throttled)</div>
+                            <div class="value">{{ result.crack_time.fastest.online_throttled }}</div>
+                        </div>
+                        <div class="crack-time-item">
+                            <div class="label">Online (Fast)</div>
+                            <div class="value">{{ result.crack_time.fastest.online }}</div>
+                        </div>
+                        <div class="crack-time-item">
+                            <div class="label">Offline (GPU)</div>
+                            <div class="value">{{ result.crack_time.fastest.offline_fast }}</div>
+                        </div>
+                        <div class="crack-time-item">
+                            <div class="label">Offline (CPU)</div>
+                            <div class="value">{{ result.crack_time.fastest.offline_slow }}</div>
+                        </div>
+                        <div class="crack-time-item">
+                            <div class="label">Cloud Attack</div>
+                            <div class="value">{{ result.crack_time.fastest.cloud }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Issues -->
+                {% if result.patterns.issues %}
+                <div class="mt-3">
+                    <div class="text-secondary small">Issues Found</div>
+                    <ul class="issues-list">
+                        {% for issue in result.patterns.issues %}
+                        <li>{{ issue }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <!-- Breach Details -->
+                <div class="mt-3">
+                    <div class="text-secondary small">Breach Check</div>
+                    <div class="mt-1">{{ result.breach.message }}</div>
+                </div>
+
+                <!-- Security Note -->
+                <div class="security-note">
+                    <div class="note-title"><i class="bi bi-shield-fill-check"></i> Security Note</div>
+                    <p class="note-text">
+                        Your password is not stored or saved in any way. All analysis is done locally in your browser.
+                        <i class="bi bi-check-circle-fill" style="color: var(--accent-green);"></i>
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Footer -->
+            <div class="text-center text-secondary mt-4" style="font-size: 0.75rem;">
+                <i class="bi bi-shield-lock"></i> Morny Password Kit v1.0.0 | No passwords are ever stored
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password Generation
+        document.getElementById('generateBtn').addEventListener('click', async function() {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    length: 16,
+                    include_uppercase: true,
+                    include_lowercase: true,
+                    include_digits: true,
+                    include_special: true
+                })
+            });
+            const data = await response.json();
+            displayGeneratedPassword(data.password);
+            document.getElementById('password').value = data.password;
+            // Auto-check the generated password
+            document.getElementById('passwordForm').submit();
+        });
+
+        document.getElementById('memorableBtn').addEventListener('click', async function() {
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    memorable: true,
+                    words: 4,
+                    separator: '-'
+                })
+            });
+            const data = await response.json();
+            displayGeneratedPassword(data.password);
+            document.getElementById('password').value = data.password;
+            // Auto-check the generated password
+            document.getElementById('passwordForm').submit();
+        });
+
+        function displayGeneratedPassword(password) {
+            const container = document.getElementById('generatedDisplay');
+            container.innerHTML = `
+                <div class="generated-password">
+                    <span class="password-text">${password}</span>
+                    <button class="copy-btn" onclick="copyPassword('${password}')">
+                        <i class="bi bi-clipboard"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function copyPassword(password) {
+            navigator.clipboard.writeText(password).then(() => {
+                alert('Password copied to clipboard!');
+            });
+        }
+    </script>
+</body>
+</html>
