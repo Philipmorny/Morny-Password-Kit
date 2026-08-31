@@ -1,0 +1,304 @@
+#!/usr/bin/env python3
+"""
+🔐 Morny Password Kit - Advanced Password Strength Checker
+Version: 1.0.0
+Author: Philip Morny
+"""
+
+import os
+import re
+import math
+import random
+import string
+import hashlib
+from flask import Flask, render_template, request, jsonify
+from flask_wtf import FlaskForm
+from wtforms import PasswordField, SubmitField
+from wtforms.validators import DataRequired, Length
+import requests
+from werkzeug.middleware.proxy_fix import ProxyFix
+
+# Initialize Flask
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or 'morny-password-kit-secret-key'
+app.wsgi_app = ProxyFix(app.wsgi_app)
+
+# ============================================
+# PASSWORD ANALYZER
+# ============================================
+
+class PasswordAnalyzer:
+    """Advanced password strength analyzer"""
+    
+    def __init__(self):
+        self.common_passwords = self._load_common_passwords()
+    
+    def _load_common_passwords(self):
+        """Load common passwords"""
+        return {
+            'password', '123456', '123456789', 'qwerty', 'abc123',
+            'password123', 'admin', 'admin123', 'letmein', 'welcome',
+            '12345', '12345678', '1234567890', 'qwerty123', 'password1',
+            'iloveyou', 'monkey', 'dragon', 'master', 'hello', 'freedom',
+            'whatever', 'trustno1', 'princess', 'sunshine', 'passw0rd',
+            'superman', 'batman', 'pokemon', 'starwars', 'computer'
+        }
+    
+    def calculate_entropy(self, password):
+        """Calculate password entropy"""
+        length = len(password)
+        
+        char_set_size = 0
+        if re.search(r'[a-z]', password):
+            char_set_size += 26
+        if re.search(r'[A-Z]', password):
+            char_set_size += 26
+        if re.search(r'\d', password):
+            char_set_size += 10
+        if re.search(r'[^a-zA-Z0-9]', password):
+            char_set_size += 33
+        
+        entropy = length * math.log2(char_set_size) if char_set_size > 0 else 0
+        
+        if entropy >= 128:
+            strength = 'excellent'
+        elif entropy >= 80:
+            strength = 'strong'
+        elif entropy >= 50:
+            strength = 'good'
+        elif entropy >= 30:
+            strength = 'weak'
+        else:
+            strength = 'very_weak'
+        
+        return {
+            'entropy': round(entropy, 2),
+            'bits': round(entropy, 2),
+            'strength': strength,
+            'char_set_size': char_set_size,
+            'length': length
+        }
+    
+    def estimate_crack_time(self, password):
+        """Estimate time to crack the password"""
+        entropy = self.calculate_entropy(password)['entropy']
+        
+        speeds = {
+            'online_throttled': 10,
+            'online': 100,
+            'offline_fast': 1000000000,
+            'offline_slow': 1000000,
+            'cloud': 1000000000000
+        }
+        
+        crack_times = {}
+        for attack_type, guesses_per_second in speeds.items():
+            guesses = 2 ** entropy
+            seconds = guesses / guesses_per_second
+            crack_times[attack_type] = self._format_time(seconds)
+        
+        fastest_seconds = (2 ** entropy) / 1000000000000
+        crack_category = self._get_crack_category(fastest_seconds)
+        
+        return {
+            'times': crack_times,
+            'category': crack_category,
+            'seconds': fastest_seconds
+        }
+    
+    def _format_time(self, seconds):
+        """Format time in human-readable format"""
+        if seconds < 1:
+            return "Less than a second"
+        elif seconds < 60:
+            return f"{int(seconds)} seconds"
+        elif seconds < 3600:
+            return f"{int(seconds / 60)} minutes"
+        elif seconds < 86400:
+            return f"{int(seconds / 3600)} hours"
+        elif seconds < 2592000:
+            return f"{int(seconds / 86400)} days"
+        elif seconds < 31536000:
+            return f"{int(seconds / 2592000)} months"
+        elif seconds < 3153600000:
+            return f"{int(seconds / 31536000)} years"
+        else:
+            return f"{int(seconds / 3153600000)} centuries"
+    
+    def _get_crack_category(self, seconds):
+        """Get crack time category"""
+        if seconds < 60:
+            return 'very_weak'
+        elif seconds < 3600:
+            return 'weak'
+        elif seconds < 86400:
+            return 'moderate'
+        elif seconds < 31536000:
+            return 'strong'
+        else:
+            return 'very_strong'
+    
+    def check_breached(self, password):
+        """Check if password has been breached"""
+        try:
+            sha1_hash = hashlib.sha1(password.encode('utf-8')).hexdigest().upper()
+            prefix = sha1_hash[:5]
+            suffix = sha1_hash[5:]
+            
+            response = requests.get(
+                f'https://api.pwnedpasswords.com/range/{prefix}',
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                for line in response.text.splitlines():
+                    if line.startswith(suffix):
+                        count = int(line.split(':')[1])
+                        return {
+                            'breached': True,
+                            'count': count,
+                            'message': f'⚠️ Breached {count:,} times!'
+                        }
+            
+            return {
+                'breached': False,
+                'count': 0,
+                'message': '✅ Not found in known breaches'
+            }
+        except:
+            return {
+                'breached': 'unknown',
+                'count': 0,
+                'message': '⚠️ Could not check breach status'
+            }
+    
+    def check_patterns(self, password):
+        """Check for common patterns"""
+        issues = []
+        score = 100
+        
+        if len(password) < 8:
+            issues.append('Too short (< 8 characters)')
+            score -= 25
+        elif len(password) < 12:
+            score -= 10
+        
+        if not re.search(r'[a-z]', password):
+            issues.append('No lowercase letters')
+            score -= 15
+        if not re.search(r'[A-Z]', password):
+            issues.append('No uppercase letters')
+            score -= 15
+        if not re.search(r'\d', password):
+            issues.append('No digits')
+            score -= 15
+        if not re.search(r'[^a-zA-Z0-9]', password):
+            issues.append('No special characters')
+            score -= 15
+        
+        if password.lower() in self.common_passwords:
+            issues.append('Common password')
+            score -= 30
+        
+        keyboard_patterns = ['qwerty', 'asdf', 'zxcv', '123456']
+        for pattern in keyboard_patterns:
+            if pattern in password.lower():
+                issues.append(f'Keyboard pattern: {pattern}')
+                score -= 20
+                break
+        
+        if re.search(r'(.)\1{3,}', password):
+            issues.append('Repeated characters')
+            score -= 10
+        
+        if score >= 80:
+            strength_label = 'Strong'
+            color = 'success'
+        elif score >= 60:
+            strength_label = 'Moderate'
+            color = 'warning'
+        elif score >= 40:
+            strength_label = 'Weak'
+            color = 'warning'
+        else:
+            strength_label = 'Very Weak'
+            color = 'danger'
+        
+        return {
+            'score': max(0, min(100, score)),
+            'strength': strength_label,
+            'color': color,
+            'issues': issues
+        }
+    
+    def analyze(self, password):
+        """Complete password analysis"""
+        if not password:
+            return {'valid': False, 'message': 'Please enter a password'}
+        
+        return {
+            'valid': True,
+            'length': len(password),
+            'entropy': self.calculate_entropy(password),
+            'crack_time': self.estimate_crack_time(password),
+            'patterns': self.check_patterns(password),
+            'breach': self.check_breached(password)
+        }
+
+# ============================================
+# PASSWORD GENERATOR
+# ============================================
+
+class PasswordGenerator:
+    @staticmethod
+    def generate_password(length=16):
+        chars = string.ascii_letters + string.digits + string.punctuation
+        return ''.join(random.choice(chars) for _ in range(length))
+    
+    @staticmethod
+    def generate_memorable_password(words=4):
+        word_list = [
+            'apple', 'banana', 'cherry', 'dragon', 'eagle', 'falcon',
+            'garden', 'haven', 'island', 'jewel', 'knight', 'lion',
+            'moon', 'night', 'ocean', 'panda', 'queen', 'river',
+            'storm', 'tiger', 'universe', 'valley', 'water', 'xenon',
+            'crystal', 'diamond', 'emerald', 'flame', 'glory', 'harmony'
+        ]
+        selected = random.sample(word_list, min(words, len(word_list)))
+        password = '-'.join(w.capitalize() for w in selected)
+        password += str(random.randint(10, 99))
+        return password
+
+# ============================================
+# FLASK ROUTES
+# ============================================
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/api/check', methods=['POST'])
+def api_check():
+    data = request.ge  
+    analyzer = PasswordAnalyzer()
+    result = analyzer.analyze(password)
+    return jsonify(result)
+
+@app.route('/api/generate', methods=['POST'])
+def api_generate():
+    data = request.get_json()
+    length = data.get('length', 16)
+    memorable = data.get('memorable', False)
+    
+    if memorable:
+        password = PasswordGenerator.generate_memorable_password(data.get('words', 4))
+    else:
+        password = PasswordGenerator.generate_password(length)
+    
+    return jsonify({
+        'password': password,
+        'length': len(password),
+        'type': 'memorable' if memorable else 'random'
+    })
+
+@app.route('/api/breach/<path:passw
